@@ -103,7 +103,7 @@ func info(ctx context.Context, path, version string) (Info, error) {
 type Source struct {
 	Type   string `json:"type"`
 	URL    string `json:"url"`
-	Tag    string `json:"tag"`
+	Tag    string `json:"tag,omitempty"`
 	Commit string `json:"commit"`
 	Dest   string `json:"dest"`
 }
