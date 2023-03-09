@@ -11,11 +11,10 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"golang.org/x/exp/slices"
 	"golang.org/x/mod/modfile"
-	"golang.org/x/mod/module"
-	"golang.org/x/sync/errgroup"
+	"golang.org/x/tools/go/vcs"
 )
 
 func proxyURL(path, endpoint string) string {
@@ -72,40 +71,26 @@ func mod(ctx context.Context, path, version string) (*modfile.File, error) {
 	return file, nil
 }
 
-type Info struct {
-	Path string `json:"-"`
-
-	Version string
-	Time    time.Time
-	Origin  struct {
-		VCS  string
-		URL  string
-		Ref  string
-		Hash string
-	}
-}
-
-func info(ctx context.Context, path, version string) (Info, error) {
-	data, err := fetch(ctx, proxyURL(path, "@v/"+version+".info"))
-	if err != nil {
-		return Info{}, fmt.Errorf("fetch: %w", err)
-	}
-
-	info := Info{Path: path}
-	err = json.Unmarshal(data, &info)
-	if err != nil {
-		return info, fmt.Errorf("parse: %w", err)
-	}
-
-	return info, nil
-}
-
 type Source struct {
 	Type   string `json:"type"`
 	URL    string `json:"url"`
-	Tag    string `json:"tag,omitempty"`
-	Commit string `json:"commit"`
+	Tag    string `json:"tag"`
+	Commit string `json:"commit,omitempty"`
 	Dest   string `json:"dest"`
+}
+
+func source(path, version string) (Source, error) {
+	rr, err := vcs.RepoRootForImportPath(path, false)
+	if err != nil {
+		return Source{}, fmt.Errorf("get repo root: %w", err)
+	}
+
+	return Source{
+		Type: rr.VCS.Cmd,
+		URL:  rr.Repo,
+		Tag:  version,
+		Dest: filepath.Join("vendor", path),
+	}, nil
 }
 
 func run(ctx context.Context) error {
@@ -134,57 +119,17 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("get modfile: %w", err)
 	}
 
-	infos := make([]Info, 0, len(mod.Require))
-	acc := make(chan Info)
-	eg, ctx := errgroup.WithContext(ctx)
-	for _, r := range mod.Require {
-		r := r
-		eg.Go(func() error {
-			path, err := module.EscapePath(r.Mod.Path)
-			if err != nil {
-				return fmt.Errorf("escape path %q: %w", r.Mod.Path, err)
-			}
-
-			version, err := module.EscapeVersion(r.Mod.Version)
-			if err != nil {
-				return fmt.Errorf("escape version %q: %w", r.Mod.Version, err)
-			}
-
-			info, err := info(ctx, path, version)
-			if err != nil {
-				return fmt.Errorf("info for %q: %w", r.Mod.String(), err)
-			}
-
-			select {
-			case <-ctx.Done():
-			case acc <- info:
-			}
-			return context.Cause(ctx)
-		})
-	}
-
-	go func() {
-		eg.Wait()
-		close(acc)
-	}()
-
-	for info := range acc {
-		infos = append(infos, info)
-	}
-	if err := eg.Wait(); err != nil {
+	out, err := asyncMap(ctx, mod.Require, func(req *modfile.Require) (Source, error) {
+		s, err := source(req.Mod.Path, req.Mod.Version)
+		if err != nil {
+			return s, fmt.Errorf("generate source for %q: %w", req.Mod.String(), err)
+		}
+		return s, nil
+	})
+	if err != nil {
 		return err
 	}
-
-	out := make([]Source, 0, len(infos))
-	for _, info := range infos {
-		out = append(out, Source{
-			Type:   info.Origin.VCS,
-			URL:    info.Origin.URL,
-			Tag:    strings.TrimPrefix(info.Origin.Ref, "refs/tags/"),
-			Commit: info.Origin.Hash,
-			Dest:   filepath.Join("vendor/", filepath.FromSlash(info.Path)),
-		})
-	}
+	slices.SortFunc(out, func(s1, s2 Source) bool { return s1.Dest < s2.Dest })
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
