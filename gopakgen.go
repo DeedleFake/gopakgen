@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	spath "path"
 	"path/filepath"
 	"strings"
 
@@ -97,13 +96,15 @@ func source(path, version string) (Source, error) {
 		tag, commit = "", rev
 	}
 
-	major := semver.Major(version)
-	if (major == "v0") || (major == "v1") {
+	tag, incompatible := strings.CutSuffix(tag, "+incompatible")
+
+	major := "/" + semver.Major(version)
+	if incompatible || (major == "/v0") || (major == "/v1") {
 		major = ""
 	}
 	if tag != "" {
-		subdir := strings.TrimPrefix(path, spath.Join(rr.Root, major))
-		subdir = strings.TrimPrefix(subdir, "/")
+		subdir := strings.TrimPrefix(path, rr.Root)
+		subdir = strings.TrimPrefix(subdir, major+"/")
 		if subdir != "" {
 			tag = subdir + "/" + tag
 		}
@@ -112,7 +113,7 @@ func source(path, version string) (Source, error) {
 	return Source{
 		Type:   rr.VCS.Cmd,
 		URL:    rr.Repo,
-		Tag:    strings.TrimSuffix(tag, "+incompatible"),
+		Tag:    tag,
 		Commit: commit,
 		Dest:   filepath.Join("vendor", rr.Root, major),
 	}, nil
