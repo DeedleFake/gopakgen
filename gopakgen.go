@@ -104,7 +104,7 @@ func source(path, version string) (Source, error) {
 	}
 	if tag != "" {
 		subdir := strings.TrimPrefix(path, rr.Root)
-		subdir = strings.TrimPrefix(subdir, major)
+		subdir = strings.TrimSuffix(subdir, major)
 		subdir = strings.TrimPrefix(subdir, "/")
 		if subdir != "" {
 			tag = subdir + "/" + tag
