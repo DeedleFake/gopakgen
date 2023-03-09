@@ -17,8 +17,8 @@ $ gopakgen deedles.dev/trayscale > trayscale.deps.json
 #### `manifest.yml`
 ```yml
 modules:
-	- name: example
-		buildsystem: simple
-		sources:
-			- trayscale.deps.json
+  - name: example
+    buildsystem: simple
+    sources:
+    - trayscale.deps.json
 ```
