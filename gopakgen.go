@@ -74,11 +74,14 @@ func mod(ctx context.Context, path, version string) (*modfile.File, error) {
 }
 
 type Source struct {
-	Type   string `json:"type"`
-	URL    string `json:"url"`
-	Tag    string `json:"tag,omitempty"`
-	Commit string `json:"commit,omitempty"`
-	Dest   string `json:"dest"`
+	Type                string `json:"type"`
+	URL                 string `json:"url"`
+	Tag                 string `json:"tag,omitempty"`
+	Commit              string `json:"commit,omitempty"`
+	Dest                string `json:"dest"`
+	DisableFsckObjects  bool   `json:"disable-fsckobjects,omitempty"`
+	DisableShallowClone bool   `json:"disable-shallow-clone,omitempty"`
+	DisableSubmodules   bool   `json:"disable-submodules,omitempty"`
 }
 
 func source(path, version string) (Source, error) {
@@ -122,8 +125,13 @@ func source(path, version string) (Source, error) {
 
 func run(ctx context.Context) error {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %v <module path>\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %v [options] <module path>\n", os.Args[0])
+		fmt.Fprintln(os.Stderr, "Options:")
+		flag.PrintDefaults()
 	}
+	disableFsckObjects := flag.Bool("disable-fsckobjects", false, "disable cloning of fsck objects from dependencies")
+	disableShallowClone := flag.Bool("disable-shallow-clone", false, "disable shallow clones of dependencies")
+	disableSubmodules := flag.Bool("disable-submodules", false, "disable submodules of dependencies")
 	flag.Parse()
 
 	if flag.NArg() != 1 {
@@ -150,6 +158,12 @@ func run(ctx context.Context) error {
 		s, err := source(req.Mod.Path, req.Mod.Version)
 		if err != nil {
 			return s, fmt.Errorf("generate source for %q: %w", req.Mod.String(), err)
+		}
+		switch s.Type {
+		case "git":
+			s.DisableFsckObjects = *disableFsckObjects
+			s.DisableShallowClone = *disableShallowClone
+			s.DisableSubmodules = *disableSubmodules
 		}
 		return s, nil
 	})
