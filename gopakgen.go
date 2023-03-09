@@ -89,7 +89,7 @@ func source(path, version string) (Source, error) {
 		Type: rr.VCS.Cmd,
 		URL:  rr.Repo,
 		Tag:  version,
-		Dest: filepath.Join("vendor", path),
+		Dest: filepath.Join("vendor", rr.Root),
 	}, nil
 }
 
