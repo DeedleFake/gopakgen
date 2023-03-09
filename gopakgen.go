@@ -9,12 +9,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	spath "path"
 	"path/filepath"
 	"strings"
 
 	"golang.org/x/exp/slices"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
+	"golang.org/x/mod/semver"
 	"golang.org/x/tools/go/vcs"
 )
 
@@ -95,11 +97,14 @@ func source(path, version string) (Source, error) {
 		tag, commit = "", rev
 	}
 
-	if tag != "" {
-		subdir := strings.TrimPrefix(strings.TrimPrefix(path, rr.Root), "/")
-		if subdir != "" {
-			tag = subdir + "/" + tag
-		}
+	major := semver.Major(version)
+	if (major == "v0") || (major == "v1") {
+		major = ""
+	}
+	subdir := strings.TrimPrefix(path, spath.Join(rr.Root, major))
+	subdir = strings.TrimPrefix(subdir, "/")
+	if subdir != "" {
+		tag = subdir + "/" + tag
 	}
 
 	return Source{
@@ -107,7 +112,7 @@ func source(path, version string) (Source, error) {
 		URL:    rr.Repo,
 		Tag:    strings.TrimSuffix(tag, "+incompatible"),
 		Commit: commit,
-		Dest:   filepath.Join("vendor", rr.Root),
+		Dest:   filepath.Join("vendor", rr.Root, major),
 	}, nil
 }
 
