@@ -98,7 +98,7 @@ func source(path, version string) (Source, error) {
 	return Source{
 		Type:   rr.VCS.Cmd,
 		URL:    rr.Repo,
-		Tag:    tag,
+		Tag:    strings.TrimSuffix(tag, "+incompatible"),
 		Commit: commit,
 		Dest:   filepath.Join("vendor", rr.Root),
 	}, nil
