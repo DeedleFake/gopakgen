@@ -95,6 +95,11 @@ func source(path, version string) (Source, error) {
 		tag, commit = "", rev
 	}
 
+	if tag != "" {
+		subdir := strings.TrimPrefix(strings.TrimPrefix(path, rr.Root), "/")
+		tag = subdir + "/" + tag
+	}
+
 	return Source{
 		Type:   rr.VCS.Cmd,
 		URL:    rr.Repo,
