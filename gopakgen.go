@@ -101,10 +101,12 @@ func source(path, version string) (Source, error) {
 	if (major == "v0") || (major == "v1") {
 		major = ""
 	}
-	subdir := strings.TrimPrefix(path, spath.Join(rr.Root, major))
-	subdir = strings.TrimPrefix(subdir, "/")
-	if subdir != "" {
-		tag = subdir + "/" + tag
+	if tag != "" {
+		subdir := strings.TrimPrefix(path, spath.Join(rr.Root, major))
+		subdir = strings.TrimPrefix(subdir, "/")
+		if subdir != "" {
+			tag = subdir + "/" + tag
+		}
 	}
 
 	return Source{
