@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/exp/slices"
 	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/module"
 	"golang.org/x/tools/go/vcs"
 )
 
@@ -74,7 +75,7 @@ func mod(ctx context.Context, path, version string) (*modfile.File, error) {
 type Source struct {
 	Type   string `json:"type"`
 	URL    string `json:"url"`
-	Tag    string `json:"tag"`
+	Tag    string `json:"tag,omitempty"`
 	Commit string `json:"commit,omitempty"`
 	Dest   string `json:"dest"`
 }
@@ -85,11 +86,21 @@ func source(path, version string) (Source, error) {
 		return Source{}, fmt.Errorf("get repo root: %w", err)
 	}
 
+	tag, commit := version, ""
+	if module.IsPseudoVersion(version) {
+		rev, err := module.PseudoVersionRev(version)
+		if err != nil {
+			return Source{}, fmt.Errorf("get pseudo-version revision for %q: %w", path+"@"+version, err)
+		}
+		tag, commit = "", rev
+	}
+
 	return Source{
-		Type: rr.VCS.Cmd,
-		URL:  rr.Repo,
-		Tag:  version,
-		Dest: filepath.Join("vendor", rr.Root),
+		Type:   rr.VCS.Cmd,
+		URL:    rr.Repo,
+		Tag:    tag,
+		Commit: commit,
+		Dest:   filepath.Join("vendor", rr.Root),
 	}, nil
 }
 
